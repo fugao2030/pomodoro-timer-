@@ -4,74 +4,167 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>番茄钟</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Quicksand:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+  /* ── Grain texture via SVG filter ── */
+  @keyframes grain {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-5%, -2%); }
+    20% { transform: translate(3%, -4%); }
+    30% { transform: translate(-1%, 5%); }
+    40% { transform: translate(4%, 1%); }
+    50% { transform: translate(-3%, -3%); }
+    60% { transform: translate(2%, 4%); }
+    70% { transform: translate(-4%, -1%); }
+    80% { transform: translate(1%, -5%); }
+    90% { transform: translate(5%, 2%); }
+  }
+
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --bg: #FDF6EE;
+    --bg-warm: #F5EADB;
+    --text: #3D1F0A;
+    --text-muted: #9B8573;
+    --text-soft: #C4B2A0;
+    --surface: #FFFFFF;
+    --surface-border: rgba(61, 31, 10, 0.05);
+    --shadow-sm: 0 1px 2px rgba(61, 31, 10, 0.04);
+    --shadow-md: 0 4px 20px rgba(61, 31, 10, 0.06);
+    --shadow-lg: 0 12px 40px rgba(61, 31, 10, 0.08);
+    --work: #D4514B;
+    --work-soft: #F2C4BF;
+    --work-glow: rgba(212, 81, 75, 0.12);
+    --work-badge-bg: rgba(212, 81, 75, 0.08);
+    --break: #5C8D6C;
+    --break-soft: #C5DDCB;
+    --break-glow: rgba(92, 141, 108, 0.12);
+    --break-badge-bg: rgba(92, 141, 108, 0.08);
+
+    font-family: 'Quicksand', -apple-system, sans-serif;
+    font-weight: 500;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: #0f0f0f;
+    background: var(--bg);
     user-select: none;
     -webkit-user-select: none;
+    overflow: hidden;
+  }
+
+  /* ── Grain overlay ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: -50%;
+    width: 200%;
+    height: 200%;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
+    pointer-events: none;
+    z-index: 0;
+    animation: grain 8s steps(10) infinite;
+    opacity: 0.7;
+  }
+
+  /* ── Warm ambient glow ── */
+  body::after {
+    content: '';
+    position: fixed;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--work-glow) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 0;
+    transition: background 0.8s ease;
+  }
+  body.break-theme::after {
+    background: radial-gradient(circle, var(--break-glow) 0%, transparent 70%);
   }
 
   .container {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 32px;
+    gap: 40px;
+    padding: 20px;
+    animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
+  /* ── Mode badge ── */
   .mode-badge {
-    font-size: 14px;
+    font-family: 'Quicksand', sans-serif;
+    font-size: 12px;
     font-weight: 600;
-    letter-spacing: 2px;
-    padding: 6px 20px;
-    border-radius: 20px;
+    letter-spacing: 3px;
+    padding: 8px 24px;
+    border-radius: 24px;
     text-transform: uppercase;
-    transition: all 0.4s ease;
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: fadeUp 0.8s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .mode-badge.work {
-    background: rgba(224, 139, 123, 0.12);
-    color: #E08B7B;
-    border: 1px solid rgba(224, 139, 123, 0.2);
+    background: var(--work-badge-bg);
+    color: var(--work);
   }
   .mode-badge.break {
-    background: rgba(123, 175, 160, 0.12);
-    color: #7BAFA0;
-    border: 1px solid rgba(123, 175, 160, 0.2);
+    background: var(--break-badge-bg);
+    color: var(--break);
   }
 
+  /* ── Timer ── */
   .timer-wrapper {
     position: relative;
-    width: 300px;
-    height: 300px;
+    width: 320px;
+    height: 320px;
+    animation: fadeUp 0.8s 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .timer-svg {
     transform: rotate(-90deg);
     width: 100%;
     height: 100%;
+    filter: drop-shadow(0 8px 24px rgba(61, 31, 10, 0.06));
   }
 
   .bg-ring {
     fill: none;
-    stroke: rgba(255, 255, 255, 0.06);
-    stroke-width: 8;
+    stroke: var(--bg-warm);
+    stroke-width: 10;
   }
 
   .progress-ring {
     fill: none;
-    stroke-width: 8;
+    stroke-width: 10;
     stroke-linecap: round;
-    transition: stroke 0.4s ease, stroke-dashoffset 1s linear;
+    transition: stroke 0.5s ease, stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .progress-ring.work { stroke: #E08B7B; }
-  .progress-ring.break { stroke: #7BAFA0; }
+  .progress-ring.work { stroke: var(--work); }
+  .progress-ring.break { stroke: var(--break); }
 
+  /* ── Inner circle subtle shadow ── */
+  .timer-inner-shadow {
+    fill: none;
+    stroke: rgba(61, 31, 10, 0.03);
+    stroke-width: 20;
+  }
+
+  /* ── Center time display ── */
   .time-display {
     position: absolute;
     inset: 0;
@@ -79,74 +172,155 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
   }
   .time-text {
-    font-size: 64px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 76px;
     font-weight: 300;
-    color: #fff;
+    color: var(--text);
     font-variant-numeric: tabular-nums;
-    letter-spacing: 2px;
+    letter-spacing: 3px;
+    line-height: 1;
+    transition: color 0.5s ease;
   }
-  .session-count {
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.4);
-    letter-spacing: 1px;
+  .time-separator {
+    opacity: 0.5;
+    transition: opacity 1s ease;
+  }
+  /* Blinking colon while running */
+  .timer-running .time-separator { animation: blinkColon 1s step-end infinite; }
+  @keyframes blinkColon {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.15; }
   }
 
+  .session-count {
+    font-family: 'Quicksand', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 1.5px;
+    transition: color 0.5s ease;
+  }
+
+  /* ── Breathing pulse when running ── */
+  .timer-wrapper.running {
+    animation: breathe 4s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.015); }
+  }
+
+  /* ── Controls ── */
   .controls {
     display: flex;
-    gap: 16px;
+    gap: 20px;
+    align-items: center;
+    animation: fadeUp 0.8s 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .btn {
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
-    border: none;
+    border: 1.5px solid var(--surface-border);
     cursor: pointer;
-    font-size: 20px;
+    font-size: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.7);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    background: var(--surface);
+    color: var(--text-muted);
+    box-shadow: var(--shadow-sm);
+    position: relative;
   }
   .btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    transform: scale(1.05);
+    background: var(--bg-warm);
+    color: var(--text);
+    border-color: transparent;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
   }
   .btn:active:not(:disabled) {
-    transform: scale(0.95);
+    transform: scale(0.94);
+    transition: transform 0.1s ease;
   }
   .btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
   }
 
-  .btn-start {
-    width: 72px;
-    height: 72px;
-    font-size: 24px;
-    background: rgba(255, 255, 255, 0.08);
-  }
-  .btn-start.work-mode { color: #E08B7B; }
-  .btn-start.break-mode { color: #7BAFA0; }
-
   .btn-icon {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
+  /* ── Play button ── */
+  .btn-start {
+    width: 72px;
+    height: 72px;
+    font-size: 24px;
+    border: none;
+    color: #FFFFFF;
+    box-shadow: var(--shadow-md), 0 0 0 0 var(--work-glow);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+  }
+  .btn-start.work-mode {
+    background: var(--work);
+  }
+  .btn-start.break-mode {
+    background: var(--break);
+  }
+  .btn-start:hover:not(:disabled).work-mode {
+    background: #C94B45;
+    box-shadow: var(--shadow-lg), 0 0 0 12px var(--work-glow);
+  }
+  .btn-start:hover:not(:disabled).break-mode {
+    background: #4F7D5E;
+    box-shadow: var(--shadow-lg), 0 0 0 12px var(--break-glow);
+  }
+  .btn-start:active:not(:disabled) {
+    transform: scale(0.92);
+    transition: transform 0.1s ease;
+  }
+  .btn-start:disabled {
+    background: var(--text-soft);
+    opacity: 0.5;
+  }
+
+  /* ── Tip ── */
   .tip {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.25);
-    margin-top: -8px;
+    font-weight: 500;
+    color: var(--text-soft);
+    letter-spacing: 0.5px;
+    margin-top: -12px;
+    animation: fadeUp 0.8s 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transition: color 0.5s ease;
+  }
+
+  /* ── Tomato dots ── */
+  .tomato-dots {
+    display: flex;
+    gap: 10px;
+    animation: fadeUp 0.8s 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .tomato-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--work-soft);
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .tomato-dot.completed {
+    background: var(--work);
+    transform: scale(1.3);
   }
 </style>
 </head>
@@ -155,34 +329,44 @@
 <div class="container">
   <div class="mode-badge work" id="modeBadge">专注</div>
 
-  <div class="timer-wrapper">
-    <svg class="timer-svg" viewBox="0 0 300 300">
-      <circle class="bg-ring" cx="150" cy="150" r="135"/>
-      <circle class="progress-ring work" id="progressRing" cx="150" cy="150" r="135"
-              stroke-dasharray="848.23" stroke-dashoffset="0"/>
+  <div class="timer-wrapper" id="timerWrapper">
+    <svg class="timer-svg" viewBox="0 0 320 320">
+      <defs>
+        <filter id="ringGlow">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <circle class="bg-ring" cx="160" cy="160" r="140"/>
+      <circle class="progress-ring work" id="progressRing" cx="160" cy="160" r="140"
+              stroke-dasharray="879.65" stroke-dashoffset="0" filter="url(#ringGlow)"/>
     </svg>
     <div class="time-display">
-      <span class="time-text" id="timeText">25:00</span>
+      <span class="time-text" id="timeText">25<span class="time-separator">:</span>00</span>
       <span class="session-count" id="sessionCount">第 1 个番茄</span>
     </div>
   </div>
 
+  <div class="tomato-dots" id="tomatoDots"></div>
+
   <div class="controls">
     <button class="btn" id="btnReset" disabled title="重置">
-      <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="1 4 1 10 7 10"/>
         <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
       </svg>
     </button>
+
     <button class="btn btn-start work-mode" id="btnStart" title="开始">
       <svg class="btn-icon" id="iconPlay" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-        <polygon points="6 3 20 12 6 21 6 3"/>
+        <polygon points="7 4 20 12 7 20 7 4"/>
       </svg>
       <svg class="btn-icon" id="iconPause" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display:none">
-        <rect x="5" y="3" width="5" height="18" rx="1"/>
-        <rect x="14" y="3" width="5" height="18" rx="1"/>
+        <rect x="6" y="3" width="4" height="18" rx="1"/>
+        <rect x="14" y="3" width="4" height="18" rx="1"/>
       </svg>
     </button>
+
     <button class="btn" id="btnSkip" disabled title="跳过">
       <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="5 4 15 12 5 20 5 4"/>
@@ -191,14 +375,14 @@
     </button>
   </div>
 
-  <p class="tip">允许桌面通知以获得计时提醒</p>
+  <p class="tip">按 空格键 开始 · R 重置 · S 跳过</p>
 </div>
 
 <script>
 const WORK_TIME = 25 * 60;
 const BREAK_TIME = 5 * 60;
 
-const CIRCUMFERENCE = 2 * Math.PI * 135; // ~848.23
+const CIRCUMFERENCE = 2 * Math.PI * 140; // ~879.65
 
 const modeBadge = document.getElementById('modeBadge');
 const progressRing = document.getElementById('progressRing');
@@ -209,9 +393,11 @@ const btnReset = document.getElementById('btnReset');
 const btnSkip = document.getElementById('btnSkip');
 const iconPlay = document.getElementById('iconPlay');
 const iconPause = document.getElementById('iconPause');
+const timerWrapper = document.getElementById('timerWrapper');
+const tomatoDots = document.getElementById('tomatoDots');
 
-let mode = 'work';        // 'work' | 'break'
-let state = 'idle';       // 'idle' | 'running' | 'paused'
+let mode = 'work';
+let state = 'idle';
 let totalSeconds = WORK_TIME;
 let remainingSeconds = WORK_TIME;
 let intervalId = null;
@@ -220,11 +406,11 @@ let completedSessions = 0;
 function formatTime(s) {
   const m = Math.floor(s / 60);
   const sec = s % 60;
-  return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  return String(m).padStart(2, '0') + '<span class="time-separator">:</span>' + String(sec).padStart(2, '0');
 }
 
 function updateDisplay() {
-  timeText.textContent = formatTime(remainingSeconds);
+  timeText.innerHTML = formatTime(remainingSeconds);
 
   const elapsed = totalSeconds - remainingSeconds;
   const offset = CIRCUMFERENCE * (elapsed / totalSeconds);
@@ -239,6 +425,8 @@ function updateUIForState() {
       btnStart.title = '开始';
       btnReset.disabled = true;
       btnSkip.disabled = true;
+      timerWrapper.classList.remove('running');
+      document.body.classList.remove('timer-running');
       break;
     case 'running':
       iconPlay.style.display = 'none';
@@ -246,6 +434,8 @@ function updateUIForState() {
       btnStart.title = '暂停';
       btnReset.disabled = false;
       btnSkip.disabled = false;
+      timerWrapper.classList.add('running');
+      document.body.classList.add('timer-running');
       break;
     case 'paused':
       iconPlay.style.display = '';
@@ -253,6 +443,8 @@ function updateUIForState() {
       btnStart.title = '继续';
       btnReset.disabled = false;
       btnSkip.disabled = false;
+      timerWrapper.classList.remove('running');
+      document.body.classList.remove('timer-running');
       break;
   }
 }
@@ -263,13 +455,29 @@ function updateModeUI() {
     modeBadge.className = 'mode-badge work';
     progressRing.className = 'progress-ring work';
     btnStart.className = 'btn btn-start work-mode';
+    document.body.classList.remove('break-theme');
+    sessionCount.textContent = `第 ${completedSessions + 1} 个番茄`;
   } else {
     modeBadge.textContent = '休息';
     modeBadge.className = 'mode-badge break';
     progressRing.className = 'progress-ring break';
     btnStart.className = 'btn btn-start break-mode';
+    document.body.classList.add('break-theme');
+    sessionCount.textContent = '休息一下';
   }
-  sessionCount.textContent = mode === 'work' ? `第 ${completedSessions + 1} 个番茄` : '休息一下';
+  updateTomatoDots();
+}
+
+function updateTomatoDots() {
+  tomatoDots.innerHTML = '';
+  // Show up to 4 dots for completed sessions, with current session showing empty dots
+  const total = Math.max(completedSessions + (mode === 'work' ? 1 : 0), 1);
+  const displayCount = Math.min(Math.max(total, completedSessions), 8);
+  for (let i = 0; i < displayCount; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'tomato-dot' + (i < completedSessions ? ' completed' : '');
+    tomatoDots.appendChild(dot);
+  }
 }
 
 function setMode(newMode) {
@@ -330,11 +538,9 @@ function completeTimer() {
     completedSessions++;
   }
 
-  // Switch mode
   const nextMode = mode === 'work' ? 'break' : 'work';
   setMode(nextMode);
 
-  // Auto-start the next session
   state = 'idle';
   updateDisplay();
   updateUIForState();
@@ -351,10 +557,10 @@ function playSound() {
       gain.connect(ctx.destination);
       osc.type = 'sine';
       osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.2);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.2 + 0.4);
-      osc.start(ctx.currentTime + i * 0.2);
-      osc.stop(ctx.currentTime + i * 0.2 + 0.4);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime + i * 0.25);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.25 + 0.5);
+      osc.start(ctx.currentTime + i * 0.25);
+      osc.stop(ctx.currentTime + i * 0.25 + 0.5);
     });
   } catch (_) { /* audio not available */ }
 }
@@ -372,7 +578,7 @@ function showNotification() {
 }
 
 function sendNotification() {
-  const title = mode === 'work' ? '🍅 专注时间结束！' : '☕ 休息时间结束！';
+  const title = mode === 'work' ? '专注时间结束！' : '休息时间结束！';
   const body = mode === 'work'
     ? '太棒了，休息 5 分钟吧。'
     : '休息结束，开始下一个番茄吧！';
@@ -411,6 +617,7 @@ document.addEventListener('keydown', e => {
 updateDisplay();
 updateUIForState();
 updateModeUI();
+updateTomatoDots();
 </script>
 </body>
 </html>
